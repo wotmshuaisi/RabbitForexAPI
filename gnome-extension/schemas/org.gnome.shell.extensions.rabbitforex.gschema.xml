@@ -208,6 +208,12 @@
 			<description>Fiat currencies to show in the panel</description>
 		</key>
 
+		<key name="fiat-invert-exchange" type="b">
+			<default>false</default>
+			<summary>Invert fiat exchange direction</summary>
+			<description>When enabled, inverts the exchange rate direction (e.g., USD→EUR instead of EUR→USD)</description>
+		</key>
+
 		<!-- Metals Settings -->
 		<key name="watched-metals" type="as">
 			<default>['GOLD', 'SILVER']</default>

@@ -305,6 +305,10 @@ const RabbitForexIndicator = GObject.registerClass(
 			return CURRENCY_SYMBOLS[currency] || currency;
 		}
 
+		_shouldInvertFiatExchange() {
+			return this._settings.get_boolean("fiat-invert-exchange");
+		}
+
 		_buildMenu() {
 			// Rates section - will be populated dynamically
 			this._ratesSection = new PopupMenu.PopupMenuSection();
@@ -900,7 +904,15 @@ const RabbitForexIndicator = GObject.registerClass(
 				return price;
 			}
 
-			if (category === "stocks" || category === "crypto" || category === "fiat") {
+			if (category === "fiat") {
+				// If invert is enabled, use rate directly; otherwise use 1/rate
+				if (this._shouldInvertFiatExchange()) {
+					return rate;
+				}
+				return 1 / rate;
+			}
+
+			if (category === "stocks" || category === "crypto") {
 				return 1 / rate;
 			}
 
@@ -933,8 +945,14 @@ const RabbitForexIndicator = GObject.registerClass(
 				}
 			} else if (category === "stocks" || category === "crypto") {
 				price = 1 / rate;
+			} else if (category === "fiat") {
+				// Apply fiat inversion setting
+				if (this._shouldInvertFiatExchange()) {
+					price = rate;
+				} else {
+					price = 1 / rate;
+				}
 			} else {
-				// fiat
 				price = rate;
 			}
 
@@ -986,7 +1004,13 @@ const RabbitForexIndicator = GObject.registerClass(
 			}
 
 			if (category === "fiat") {
-				const price = 1 / rate;
+				// Apply fiat inversion setting
+				let price;
+				if (this._shouldInvertFiatExchange()) {
+					price = rate;
+				} else {
+					price = 1 / rate;
+				}
 				return this._formatWithCurrency(price, currencySymbol, primaryCurrency, symbolPosition);
 			}
 

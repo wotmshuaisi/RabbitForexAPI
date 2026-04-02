@@ -1022,6 +1022,25 @@ export default class RabbitForexPreferences extends ExtensionPreferences {
 
 		currencyGroup.add(currencyRow);
 
+		// Fiat-specific settings
+		if (category === "fiat") {
+			const fiatGroup = new Adw.PreferencesGroup({
+				title: "Exchange Direction",
+				description: "Configure how exchange rates are displayed",
+			});
+			page.add(fiatGroup);
+
+			const invertRow = new Adw.SwitchRow({
+				title: "Invert Exchange Direction",
+				subtitle: "Show inverse rate (e.g., USD→EUR instead of EUR→USD)",
+			});
+			invertRow.active = settings.get_boolean("fiat-invert-exchange");
+			invertRow.connect("notify::active", () => {
+				settings.set_boolean("fiat-invert-exchange", invertRow.active);
+			});
+			fiatGroup.add(invertRow);
+		}
+
 		// Watched Symbols Group
 		const watchedGroup = new Adw.PreferencesGroup({
 			title: "Watched Symbols",
