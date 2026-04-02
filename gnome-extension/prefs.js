@@ -265,36 +265,6 @@ export default class RabbitForexPreferences extends ExtensionPreferences {
 		});
 		window.add(generalPage);
 
-		// Primary Currency Group
-		const currencyGroup = new Adw.PreferencesGroup({
-			title: "Display Currency",
-			description: "Select the primary currency for displaying prices",
-		});
-		generalPage.add(currencyGroup);
-
-		const currencyModel = new Gtk.StringList();
-		for (const currency of COMMON_FIATS) {
-			currencyModel.append(currency);
-		}
-
-		const currencyRow = new Adw.ComboRow({
-			title: "Primary Currency",
-			subtitle: "Prices will be displayed in this currency",
-			model: currencyModel,
-		});
-
-		const currentCurrency = settings.get_string("primary-currency");
-		const currencyIndex = COMMON_FIATS.indexOf(currentCurrency);
-		if (currencyIndex >= 0) {
-			currencyRow.selected = currencyIndex;
-		}
-
-		currencyRow.connect("notify::selected", () => {
-			const selected = COMMON_FIATS[currencyRow.selected];
-			settings.set_string("primary-currency", selected);
-		});
-		currencyGroup.add(currencyRow);
-
 		// Panel Settings Group
 		const panelGroup = new Adw.PreferencesGroup({
 			title: "Panel Settings",
@@ -1002,7 +972,7 @@ export default class RabbitForexPreferences extends ExtensionPreferences {
 		}
 
 		const currencyKey = `${category}-currency`;
-		const currentCategoryCurrency = settings.get_string(currencyKey) || settings.get_string("primary-currency");
+		const currentCategoryCurrency = settings.get_string(currencyKey) || "USD";
 
 		const currencyRow = new Adw.ComboRow({
 			title: "Category Currency",
@@ -1039,6 +1009,15 @@ export default class RabbitForexPreferences extends ExtensionPreferences {
 				settings.set_boolean("fiat-invert-exchange", invertRow.active);
 			});
 			fiatGroup.add(invertRow);
+
+			const browserRow = new Adw.EntryRow({
+				title: "Browser Command",
+				text: settings.get_string("fiat-browser-command"),
+			});
+			browserRow.connect("notify::text", () => {
+				settings.set_string("fiat-browser-command", browserRow.text);
+			});
+			fiatGroup.add(browserRow);
 		}
 
 		// Watched Symbols Group

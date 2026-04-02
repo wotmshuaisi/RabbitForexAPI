@@ -9,12 +9,6 @@
 			<description>How often to fetch new exchange rates from the API</description>
 		</key>
 
-		<key name="primary-currency" type="s">
-			<default>'USD'</default>
-			<summary>Primary currency</summary>
-			<description>The primary fiat currency in which prices should be displayed (fallback for legacy behavior)</description>
-		</key>
-
 		<key name="fiat-currency" type="s">
 			<default>'USD'</default>
 			<summary>Fiat currency</summary>
@@ -212,6 +206,12 @@
 			<default>false</default>
 			<summary>Invert fiat exchange direction</summary>
 			<description>When enabled, inverts the exchange rate direction (e.g., USD→EUR instead of EUR→USD)</description>
+		</key>
+
+		<key name="fiat-browser-command" type="s">
+			<default>''</default>
+			<summary>Fiat browser command</summary>
+			<description>Custom browser command to open fiat currency charts (leave empty to use default browser)</description>
 		</key>
 
 		<!-- Metals Settings -->

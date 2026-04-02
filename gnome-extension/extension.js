@@ -238,18 +238,17 @@ const RabbitForexIndicator = GObject.registerClass(
 		}
 
 		_getCategoryCurrency(category) {
-			const fallback = this._settings.get_string("primary-currency");
 			switch (category) {
 				case "fiat":
-					return this._settings.get_string("fiat-currency") || fallback;
+					return this._settings.get_string("fiat-currency") || "USD";
 				case "metals":
-					return this._settings.get_string("metals-currency") || fallback;
+					return this._settings.get_string("metals-currency") || "USD";
 				case "crypto":
-					return this._settings.get_string("crypto-currency") || fallback;
+					return this._settings.get_string("crypto-currency") || "USD";
 				case "stocks":
-					return this._settings.get_string("stocks-currency") || fallback;
+					return this._settings.get_string("stocks-currency") || "USD";
 				default:
-					return fallback;
+					return "USD";
 			}
 		}
 
@@ -862,7 +861,28 @@ const RabbitForexIndicator = GObject.registerClass(
 						rateItem.connect("activate", () => {
 							const clickAction = this._settings.get_string("click-action");
 
-							if (clickAction === "graph") {
+							if (clickAction === "graph" && category === "fiat") {
+								// For fiat, open browser with XE currency chart
+								let fromCurrency, toCurrency;
+								if (this._shouldInvertFiatExchange()) {
+									fromCurrency = symbol;
+									toCurrency = categoryCurrency;
+								} else {
+									fromCurrency = categoryCurrency;
+									toCurrency = symbol;
+								}
+								const url = `https://www.xe.com/currencycharts/?from=${fromCurrency}&to=${toCurrency}&view=1W`;
+
+								const browserCommand = this._settings.get_string("fiat-browser-command");
+								if (browserCommand && browserCommand.trim() !== "") {
+									// Use custom browser command
+									const command = `${browserCommand} "${url}"`;
+									GLib.spawn_command_line_async(command);
+								} else {
+									// Use default browser
+									Gio.AppInfo.launch_default_for_uri(url, null);
+								}
+							} else if (clickAction === "graph") {
 								this._showPriceGraph(symbol, category, categoryCurrency);
 							} else {
 								const clipboardText = this._getClipboardText(symbol, rawPrice, displayRate, categoryCurrency, category);
@@ -963,7 +983,7 @@ const RabbitForexIndicator = GObject.registerClass(
 			}
 
 			// Show currency in panel
-			const currency = categoryCurrency || this._settings.get_string("primary-currency");
+			const currency = categoryCurrency || "USD";
 			const currencySymbol = this._getCurrencySymbol(currency);
 			const symbolPosition = this._settings.get_string("symbol-position");
 			const useCurrencySymbols = this._settings.get_boolean("use-currency-symbols");
@@ -985,8 +1005,8 @@ const RabbitForexIndicator = GObject.registerClass(
 			}
 		}
 
-		_formatDisplayRate(rate, category, symbol, primaryCurrency) {
-			const currencySymbol = this._getCurrencySymbol(primaryCurrency);
+		_formatDisplayRate(rate, category, symbol, currency) {
+			const currencySymbol = this._getCurrencySymbol(currency);
 			const symbolPosition = this._settings.get_string("symbol-position");
 
 			if (category === "metals") {
@@ -995,12 +1015,12 @@ const RabbitForexIndicator = GObject.registerClass(
 				if (metalsUnit === "troy-ounce") {
 					price = price * TROY_OUNCE_TO_GRAM;
 				}
-				return this._formatWithCurrency(price, currencySymbol, primaryCurrency, symbolPosition);
+				return this._formatWithCurrency(price, currencySymbol, currency, symbolPosition);
 			}
 
 			if (category === "stocks") {
 				const price = 1 / rate;
-				return this._formatWithCurrency(price, currencySymbol, primaryCurrency, symbolPosition);
+				return this._formatWithCurrency(price, currencySymbol, currency, symbolPosition);
 			}
 
 			if (category === "fiat") {
@@ -1011,29 +1031,29 @@ const RabbitForexIndicator = GObject.registerClass(
 				} else {
 					price = 1 / rate;
 				}
-				return this._formatWithCurrency(price, currencySymbol, primaryCurrency, symbolPosition);
+				return this._formatWithCurrency(price, currencySymbol, currency, symbolPosition);
 			}
 
 			if (category === "crypto") {
 				const price = 1 / rate;
-				return this._formatWithCurrency(price, currencySymbol, primaryCurrency, symbolPosition);
+				return this._formatWithCurrency(price, currencySymbol, currency, symbolPosition);
 			}
 
 			return this._formatNumber(rate);
 		}
 
-		_formatWithCurrency(price, currencySymbol, primaryCurrency, position) {
+		_formatWithCurrency(price, currencySymbol, currency, position) {
 			const formattedPrice = this._formatNumber(price);
 			const useCurrencySymbols = this._settings.get_boolean("use-currency-symbols");
 
 			if (!useCurrencySymbols) {
-				return `${formattedPrice} ${primaryCurrency}`;
+				return `${formattedPrice} ${currency}`;
 			}
 
-			const isSymbol = CURRENCY_SYMBOLS[primaryCurrency] && CURRENCY_SYMBOLS[primaryCurrency] !== primaryCurrency;
+			const isSymbol = CURRENCY_SYMBOLS[currency] && CURRENCY_SYMBOLS[currency] !== currency;
 
 			if (!isSymbol) {
-				return `${formattedPrice} ${primaryCurrency}`;
+				return `${formattedPrice} ${currency}`;
 			}
 
 			if (position === "before") {
@@ -1225,14 +1245,14 @@ const RabbitForexIndicator = GObject.registerClass(
 			}
 		}
 
-		_updatePriceLabels(dataPoints, primaryCurrency) {
+		_updatePriceLabels(dataPoints, currency) {
 			const firstPrice = dataPoints[0].price;
 			const lastPrice = dataPoints[dataPoints.length - 1].price;
 			const change = lastPrice - firstPrice;
 			const changePercent = (change / firstPrice) * 100;
 			const isUp = change >= 0;
 
-			this._priceLabel.text = this._formatPrice(lastPrice, true, primaryCurrency);
+			this._priceLabel.text = this._formatPrice(lastPrice, true, currency);
 
 			const changeColor = isUp ? "#69F0AE" : "#FF6B6B";
 			const changeIcon = isUp ? "▲" : "▼";
@@ -1240,17 +1260,17 @@ const RabbitForexIndicator = GObject.registerClass(
 			this._changeLabel.style = `font-size: 18px; color: ${changeColor};`;
 		}
 
-		_formatPrice(price, includeCurrency = false, primaryCurrency = null) {
+		_formatPrice(price, includeCurrency = false, currency = null) {
 			let formattedPrice = this._formatNumber(price);
 
-			if (includeCurrency && primaryCurrency) {
-				return this._addCurrencySymbol(formattedPrice, primaryCurrency);
+			if (includeCurrency && currency) {
+				return this._addCurrencySymbol(formattedPrice, currency);
 			}
 
 			return formattedPrice;
 		}
 
-		_formatGraphPrice(price, includeCurrency = false, primaryCurrency = null) {
+		_formatGraphPrice(price, includeCurrency = false, currency = null) {
 			let formattedPrice;
 			if (price >= 1000000) {
 				formattedPrice = (price / 1000000).toFixed(1) + "M";
@@ -1264,25 +1284,25 @@ const RabbitForexIndicator = GObject.registerClass(
 				formattedPrice = price.toExponential(2);
 			}
 
-			if (includeCurrency && primaryCurrency) {
-				return this._addCurrencySymbol(formattedPrice, primaryCurrency);
+			if (includeCurrency && currency) {
+				return this._addCurrencySymbol(formattedPrice, currency);
 			}
 
 			return formattedPrice;
 		}
 
-		_addCurrencySymbol(formattedPrice, primaryCurrency) {
+		_addCurrencySymbol(formattedPrice, currency) {
 			const useCurrencySymbols = this._settings.get_boolean("use-currency-symbols");
 			if (!useCurrencySymbols) {
-				return `${formattedPrice} ${primaryCurrency}`;
+				return `${formattedPrice} ${currency}`;
 			}
 
-			const currencySymbol = CURRENCY_SYMBOLS[primaryCurrency] || primaryCurrency;
+			const currencySymbol = CURRENCY_SYMBOLS[currency] || currency;
 			const symbolPosition = this._settings.get_string("symbol-position");
-			const isSymbol = CURRENCY_SYMBOLS[primaryCurrency] && CURRENCY_SYMBOLS[primaryCurrency] !== primaryCurrency;
+			const isSymbol = CURRENCY_SYMBOLS[currency] && CURRENCY_SYMBOLS[currency] !== currency;
 
 			if (!isSymbol) {
-				return `${formattedPrice} ${primaryCurrency}`;
+				return `${formattedPrice} ${currency}`;
 			}
 
 			if (symbolPosition === "before") {
@@ -1327,7 +1347,6 @@ const RabbitForexIndicator = GObject.registerClass(
 			if (message.status_code !== 200) {
 				throw new Error(`HTTP ${message.status_code}`);
 			}
-
 			const decoder = new TextDecoder("utf-8");
 			const text = decoder.decode(bytes.get_data());
 			return JSON.parse(text);
@@ -1369,7 +1388,7 @@ const RabbitForexIndicator = GObject.registerClass(
 			return processed;
 		}
 
-		_createGraphWidget(dataPoints, symbol, primaryCurrency) {
+		_createGraphWidget(dataPoints, symbol, currency) {
 			const width = 500;
 			const height = 250;
 			const padding = { top: 20, right: 70, bottom: 40, left: 30 };
@@ -1425,7 +1444,7 @@ const RabbitForexIndicator = GObject.registerClass(
 				for (let i = 0; i <= 4; i++) {
 					const y = padding.top + (graphHeight * i) / 4;
 					const price = paddedMax - (paddedRange * i) / 4;
-					const priceText = this._formatGraphPrice(price, true, primaryCurrency);
+					const priceText = this._formatGraphPrice(price, true, currency);
 					cr.moveTo(width - padding.right + 5, y + 4);
 					cr.showText(priceText);
 				}
@@ -1507,7 +1526,7 @@ const RabbitForexIndicator = GObject.registerClass(
 			return canvas;
 		}
 
-		_createStatsBox(dataPoints, primaryCurrency) {
+		_createStatsBox(dataPoints, currency) {
 			const statsBox = new St.BoxLayout({
 				style: "spacing: 40px; padding-top: 10px;",
 				x_align: Clutter.ActorAlign.CENTER,
@@ -1523,8 +1542,8 @@ const RabbitForexIndicator = GObject.registerClass(
 
 			const stats = [
 				{ label: "Period", value: dateRangeStr },
-				{ label: "Low", value: this._formatPrice(minPrice, true, primaryCurrency) },
-				{ label: "High", value: this._formatPrice(maxPrice, true, primaryCurrency) },
+				{ label: "Low", value: this._formatPrice(minPrice, true, currency) },
+				{ label: "High", value: this._formatPrice(maxPrice, true, currency) },
 			];
 
 			for (const stat of stats) {
