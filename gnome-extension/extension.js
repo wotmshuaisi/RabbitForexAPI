@@ -1204,14 +1204,14 @@ const RabbitForexIndicator = GObject.registerClass(
 
 					if (dataPoints.length > 0) {
 						// Update price and change in header
-						this._updatePriceLabels(dataPoints, primaryCurrency);
+						this._updatePriceLabels(dataPoints, categoryCurrency);
 
 						// Create graph widget
-						const graphWidget = this._createGraphWidget(dataPoints, symbol, primaryCurrency);
+						const graphWidget = this._createGraphWidget(dataPoints, symbol, categoryCurrency);
 						contentBox.add_child(graphWidget);
 
 						// Add stats below the graph
-						const statsBox = this._createStatsBox(dataPoints, primaryCurrency);
+						const statsBox = this._createStatsBox(dataPoints, categoryCurrency);
 						contentBox.add_child(statsBox);
 					} else {
 						loadingLabel.text = "No data available";
