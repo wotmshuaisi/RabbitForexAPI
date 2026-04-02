@@ -237,18 +237,33 @@ const RabbitForexIndicator = GObject.registerClass(
 			this._fetchHistoricalRatesIfNeeded();
 		}
 
+		_getCategoryCurrency(category) {
+			const fallback = this._settings.get_string("primary-currency");
+			switch (category) {
+				case "fiat":
+					return this._settings.get_string("fiat-currency") || fallback;
+				case "metals":
+					return this._settings.get_string("metals-currency") || fallback;
+				case "crypto":
+					return this._settings.get_string("crypto-currency") || fallback;
+				case "stocks":
+					return this._settings.get_string("stocks-currency") || fallback;
+				default:
+					return fallback;
+			}
+		}
+
 		_getEndpoints() {
-			const primaryCurrency = this._settings.get_string("primary-currency");
 			return {
-				fiat: `${API_BASE}/rates/${primaryCurrency}`,
-				metals: `${API_BASE}/metals/rates/${primaryCurrency}`,
-				crypto: `${API_BASE}/crypto/rates/${primaryCurrency}`,
-				stocks: `${API_BASE}/stocks/rates/${primaryCurrency}`,
+				fiat: `${API_BASE}/rates/${this._getCategoryCurrency("fiat")}`,
+				metals: `${API_BASE}/metals/rates/${this._getCategoryCurrency("metals")}`,
+				crypto: `${API_BASE}/crypto/rates/${this._getCategoryCurrency("crypto")}`,
+				stocks: `${API_BASE}/stocks/rates/${this._getCategoryCurrency("stocks")}`,
 			};
 		}
 
 		_getHistoryEndpoint(category, symbol) {
-			const primaryCurrency = this._settings.get_string("primary-currency");
+			const categoryCurrency = this._getCategoryCurrency(category);
 			const mode = this._settings.get_string("price-change-mode");
 
 			let resolution = "";
@@ -262,11 +277,11 @@ const RabbitForexIndicator = GObject.registerClass(
 				case "fiat":
 					return `${API_BASE}/rates/history/${symbol}${resolution}`;
 				case "metals":
-					return `${API_BASE}/metals/history/${symbol}/currency/${primaryCurrency}${resolution}`;
+					return `${API_BASE}/metals/history/${symbol}/currency/${categoryCurrency}${resolution}`;
 				case "crypto":
-					return `${API_BASE}/crypto/history/${symbol}/currency/${primaryCurrency}${resolution}`;
+					return `${API_BASE}/crypto/history/${symbol}/currency/${categoryCurrency}${resolution}`;
 				case "stocks":
-					return `${API_BASE}/stocks/history/${symbol}/currency/${primaryCurrency}${resolution}`;
+					return `${API_BASE}/stocks/history/${symbol}/currency/${categoryCurrency}${resolution}`;
 				default:
 					return null;
 			}
@@ -729,6 +744,7 @@ const RabbitForexIndicator = GObject.registerClass(
 
 			for (const category of CATEGORIES) {
 				if (!this._rates[category]) continue;
+				const categoryCurrency = this._getCategoryCurrency(category);
 
 				const showInPanel = this._getPanelCategory(category);
 
@@ -736,7 +752,7 @@ const RabbitForexIndicator = GObject.registerClass(
 					if (this._rates[category][symbol] !== undefined) {
 						const rate = this._rates[category][symbol];
 						const price = this._getRawPrice(rate, category);
-						const formattedRate = this._formatPanelRate(rate, category, symbol, showCurrencyInPanel);
+						const formattedRate = this._formatPanelRate(rate, category, symbol, showCurrencyInPanel, categoryCurrency);
 						const direction = this._getPriceDirection(category, symbol, rate);
 						const { change, percent } = this._getPriceChange(category, symbol, rate);
 
@@ -784,7 +800,6 @@ const RabbitForexIndicator = GObject.registerClass(
 				stocks: "Stocks",
 			};
 
-			const primaryCurrency = this._settings.get_string("primary-currency");
 			const metalsUnit = this._settings.get_string("metals-unit");
 			const menuItemTemplate = this._settings.get_string("menu-item-template");
 			const menuItemTemplateUp = this._settings.get_string("menu-item-template-up");
@@ -801,6 +816,7 @@ const RabbitForexIndicator = GObject.registerClass(
 			for (let i = 0; i < visibleCategories.length; i++) {
 				const category = visibleCategories[i];
 				const watched = this._getWatchedCategory(category);
+				const categoryCurrency = this._getCategoryCurrency(category);
 
 				hasAnyRates = true;
 
@@ -821,7 +837,7 @@ const RabbitForexIndicator = GObject.registerClass(
 					if (this._rates[category][symbol] !== undefined) {
 						const rate = this._rates[category][symbol];
 						const rawPrice = this._getRawPrice(rate, category);
-						const displayRate = this._formatDisplayRate(rate, category, symbol, primaryCurrency);
+						const displayRate = this._formatDisplayRate(rate, category, symbol, categoryCurrency);
 						const direction = this._getPriceDirection(category, symbol, rate);
 						const { change, percent } = this._getPriceChange(category, symbol, rate);
 
@@ -843,9 +859,9 @@ const RabbitForexIndicator = GObject.registerClass(
 							const clickAction = this._settings.get_string("click-action");
 
 							if (clickAction === "graph") {
-								this._showPriceGraph(symbol, category, primaryCurrency);
+								this._showPriceGraph(symbol, category, categoryCurrency);
 							} else {
-								const clipboardText = this._getClipboardText(symbol, rawPrice, displayRate, primaryCurrency, category);
+								const clipboardText = this._getClipboardText(symbol, rawPrice, displayRate, categoryCurrency, category);
 								const clipboard = St.Clipboard.get_default();
 								clipboard.set_text(St.ClipboardType.CLIPBOARD, clipboardText);
 								if (this._settings.get_boolean("clipboard-notification")) {
@@ -891,7 +907,7 @@ const RabbitForexIndicator = GObject.registerClass(
 			return rate;
 		}
 
-		_getClipboardText(symbol, rawPrice, displayRate, primaryCurrency, category) {
+		_getClipboardText(symbol, rawPrice, displayRate, categoryCurrency, category) {
 			const clipboardFormat = this._settings.get_string("clipboard-format");
 
 			switch (clipboardFormat) {
@@ -906,7 +922,7 @@ const RabbitForexIndicator = GObject.registerClass(
 			}
 		}
 
-		_formatPanelRate(rate, category, symbol, showCurrency = false) {
+		_formatPanelRate(rate, category, symbol, showCurrency = false, categoryCurrency) {
 			let price;
 
 			if (category === "metals") {
@@ -929,19 +945,19 @@ const RabbitForexIndicator = GObject.registerClass(
 			}
 
 			// Show currency in panel
-			const primaryCurrency = this._settings.get_string("primary-currency");
-			const currencySymbol = this._getCurrencySymbol(primaryCurrency);
+			const currency = categoryCurrency || this._settings.get_string("primary-currency");
+			const currencySymbol = this._getCurrencySymbol(currency);
 			const symbolPosition = this._settings.get_string("symbol-position");
 			const useCurrencySymbols = this._settings.get_boolean("use-currency-symbols");
 
 			if (!useCurrencySymbols) {
-				return `${formattedPrice} ${primaryCurrency}`;
+				return `${formattedPrice} ${currency}`;
 			}
 
-			const isSymbol = CURRENCY_SYMBOLS[primaryCurrency] && CURRENCY_SYMBOLS[primaryCurrency] !== primaryCurrency;
+			const isSymbol = CURRENCY_SYMBOLS[currency] && CURRENCY_SYMBOLS[currency] !== currency;
 
 			if (!isSymbol) {
-				return `${formattedPrice} ${primaryCurrency}`;
+				return `${formattedPrice} ${currency}`;
 			}
 
 			if (symbolPosition === "before") {
@@ -1047,7 +1063,7 @@ const RabbitForexIndicator = GObject.registerClass(
 			this._timestampItem.label.text = `Last updated: ${timeStr}`;
 		}
 
-		async _showPriceGraph(symbol, category, primaryCurrency) {
+		async _showPriceGraph(symbol, category, categoryCurrency) {
 			this.menu.close();
 
 			// Create the dialog
@@ -1083,11 +1099,11 @@ const RabbitForexIndicator = GObject.registerClass(
 			leftBox.add_child(symbolLabel);
 
 			// Show unit info for metals
-			let badgeText = primaryCurrency;
+			let badgeText = categoryCurrency;
 			if (category === "metals") {
 				const metalsUnit = this._settings.get_string("metals-unit");
 				const unitLabel = metalsUnit === "troy-ounce" ? "oz" : "g";
-				badgeText = `${primaryCurrency}/${unitLabel}`;
+				badgeText = `${categoryCurrency}/${unitLabel}`;
 			}
 
 			const currencyBadge = new St.Label({
@@ -1154,7 +1170,7 @@ const RabbitForexIndicator = GObject.registerClass(
 
 			// Fetch and display data
 			try {
-				const historyData = await this._fetchGraphData(symbol, category, primaryCurrency);
+				const historyData = await this._fetchGraphData(symbol, category, categoryCurrency);
 
 				if (historyData && historyData.data && historyData.data.length > 0) {
 					contentBox.remove_child(loadingBox);
@@ -1252,20 +1268,20 @@ const RabbitForexIndicator = GObject.registerClass(
 			}
 		}
 
-		async _fetchGraphData(symbol, category, primaryCurrency) {
+		async _fetchGraphData(symbol, category, categoryCurrency) {
 			let url;
 			switch (category) {
 				case "fiat":
 					url = `${API_BASE}/rates/history/${symbol}/daily`;
 					break;
 				case "metals":
-					url = `${API_BASE}/metals/history/${symbol}/currency/${primaryCurrency}/daily`;
+					url = `${API_BASE}/metals/history/${symbol}/currency/${categoryCurrency}/daily`;
 					break;
 				case "crypto":
-					url = `${API_BASE}/crypto/history/${symbol}/currency/${primaryCurrency}/daily`;
+					url = `${API_BASE}/crypto/history/${symbol}/currency/${categoryCurrency}/daily`;
 					break;
 				case "stocks":
-					url = `${API_BASE}/stocks/history/${symbol}/currency/${primaryCurrency}/daily`;
+					url = `${API_BASE}/stocks/history/${symbol}/currency/${categoryCurrency}/daily`;
 					break;
 				default:
 					return null;

@@ -989,6 +989,39 @@ export default class RabbitForexPreferences extends ExtensionPreferences {
 			icon_name: icons[category],
 		});
 
+		// Category display currency
+		const currencyGroup = new Adw.PreferencesGroup({
+			title: "Display Currency",
+			description: "Currency used for this category's API requests and display",
+		});
+		page.add(currencyGroup);
+
+		const currencyModel = new Gtk.StringList();
+		for (const currency of COMMON_FIATS) {
+			currencyModel.append(currency);
+		}
+
+		const currencyKey = `${category}-currency`;
+		const currentCategoryCurrency = settings.get_string(currencyKey) || settings.get_string("primary-currency");
+
+		const currencyRow = new Adw.ComboRow({
+			title: "Category Currency",
+			subtitle: "Currency for this category",
+			model: currencyModel,
+		});
+
+		const currencyIndex = COMMON_FIATS.indexOf(currentCategoryCurrency);
+		if (currencyIndex >= 0) {
+			currencyRow.selected = currencyIndex;
+		}
+
+		currencyRow.connect("notify::selected", () => {
+			const selected = COMMON_FIATS[currencyRow.selected];
+			settings.set_string(currencyKey, selected);
+		});
+
+		currencyGroup.add(currencyRow);
+
 		// Watched Symbols Group
 		const watchedGroup = new Adw.PreferencesGroup({
 			title: "Watched Symbols",

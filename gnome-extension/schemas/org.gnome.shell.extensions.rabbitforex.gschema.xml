@@ -12,7 +12,31 @@
 		<key name="primary-currency" type="s">
 			<default>'USD'</default>
 			<summary>Primary currency</summary>
-			<description>The primary fiat currency in which prices should be displayed</description>
+			<description>The primary fiat currency in which prices should be displayed (fallback for legacy behavior)</description>
+		</key>
+
+		<key name="fiat-currency" type="s">
+			<default>'USD'</default>
+			<summary>Fiat currency</summary>
+			<description>Currency for fiat rate requests and display</description>
+		</key>
+
+		<key name="metals-currency" type="s">
+			<default>'USD'</default>
+			<summary>Metals currency</summary>
+			<description>Currency for metals rate requests and display</description>
+		</key>
+
+		<key name="crypto-currency" type="s">
+			<default>'USD'</default>
+			<summary>Crypto currency</summary>
+			<description>Currency for crypto rate requests and display</description>
+		</key>
+
+		<key name="stocks-currency" type="s">
+			<default>'USD'</default>
+			<summary>Stocks currency</summary>
+			<description>Currency for stocks rate requests and display</description>
 		</key>
 
 		<key name="metals-unit" type="s">
