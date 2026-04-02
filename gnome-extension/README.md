@@ -10,6 +10,8 @@ A GNOME Shell extension that monitors exchange rates for fiat currencies, precio
 - **Dropdown menu**: View all watched rates with detailed information
 - **Quick copy**: Click any rate in the dropdown to copy to clipboard
 - **Easy configuration**: Graphical preferences with quick-add buttons for popular symbols
+- **Multi-Currencies**: Individual currency setting for different categories
+- **Fiat exchange direction**: Invert fiat exchange direction configuration
 
 ## API Endpoints
 
